@@ -1,0 +1,50 @@
+.input-wrapper {
+  display: inline-block;
+  position: relative;
+  width: 280px;
+  margin: 1.2em 0;
+  background: #fff; /* pure white for crispness */
+  border-radius: 12px;
+  box-shadow:
+    inset 0 1px 4px rgba(0, 0, 0, 0.06),
+    0 2px 6px rgba(0, 0, 0, 0.08); /* subtle external shadow */
+  padding: 0.3em 1.2em;
+  transition: box-shadow 0.3s ease, border-color 0.3s ease;
+  border: 1.5px solid transparent;
+}
+
+.input-wrapper:focus-within {
+  box-shadow:
+    0 0 12px 3px #4caf50; /* stronger green glow */
+  border-color: #388e3c;    /* dark green border on focus */
+  background: #f7fdf7;      /* very light green background on focus */
+}
+
+#serverNameInput {
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  padding: 0.7em 0;
+  font-size: 1.1rem;
+  color: #111;             /* near-black text for crispness */
+  border-radius: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  font-family: 'Inter', sans-serif;
+  transition: color 0.3s ease;
+}
+
+#serverNameInput::placeholder {
+  font-family: 'Inter', sans-serif;
+  font-weight: 600;
+  font-style: normal;      /* remove italic if you want */
+  color: #4caf5080;        /* keep your subtle green */
+  opacity: 1;              /* full opacity for consistent color */
+  transition: color 0.3s ease;
+}
+
+
+#serverNameInput:focus::placeholder {
+  color: transparent;      /* hide placeholder on focus */
+}

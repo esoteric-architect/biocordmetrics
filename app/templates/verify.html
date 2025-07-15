@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Face Verification</title>
+  <style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
+  </style>  
+  <link rel="stylesheet" href="/static/styles.css">
+  <link rel="stylesheet" href="/static/verify.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+</head>
+<body>
+  <h1>Face Verification</h1>
+
+  <div id="video-container">
+    <video id="video" width="320" height="240" autoplay muted></video>
+    <canvas id="overlay" width="320" height="240"></canvas>
+  </div>
+
+  <canvas id="canvas" width="320" height="240"></canvas>
+  <input type="hidden" id="discordIdInput" value="{{discord_id}}" />
+  <input type="hidden" id="serverIdInput" value="{{server_id}}" />
+  <input type="hidden" id="tokenInput" value="{{token}}" /> 
+  <br />
+ <div class="input-wrapper">
+  <input id="serverNameInput" type="text" placeholder="Enter Discord Server Name" />
+</div>  <br />
+  <button id="capture" disabled>Capture</button>
+  <button id="verifyBtn" disabled>Verify</button>
+
+  <div id="message"></div>
+
+  <script>
+    const discordId = document.getElementById("discordIdInput").value;
+    const serverId = document.getElementById("serverIdInput").value;
+    const video = document.getElementById("video");
+    const overlay = document.getElementById("overlay");
+    const canvas = document.getElementById("canvas");
+    const captureBtn = document.getElementById("capture");
+    const verifyBtn = document.getElementById("verifyBtn");
+    const messageDiv = document.getElementById("message");
+    const serverNameInput = document.getElementById("serverNameInput");
+
+    let faceDetected = false;
+    let capturedDataURL = null;
+    let blinkCount = 0;
+    let blinkStartTime = 0;
+
+    const BLINK_THRESHOLD = 0.21;
+
+    async function loadModels() {
+      await faceapi.nets.tinyFaceDetector.loadFromUri("/static/models");
+      await faceapi.nets.faceLandmark68TinyNet.loadFromUri("/static/models");
+    }
+
+    async function startWebcam() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        video.srcObject = stream;
+      } catch (err) {
+        alert("❌ Webcam access denied.");
+      }
+    }
+
+    function eyeAspectRatio(eye) {
+      
+      const dist = (p1, p2) => Math.hypot(p1.x -p2.x, p1.y - p2.y);
+      const A = dist(eye[1], eye[5]);
+      const B = dist(eye[2], eye[4]);
+      const C = dist(eye[0], eye[3]);
+      return (A + B) / (2.0 * C);
+    }
+
+    async function detectFaceLoop() {
+      const ctx = overlay.getContext("2d");
+      const displaySize = { width: video.width, height: video.height };
+      faceapi.matchDimensions(overlay, displaySize);
+
+      setInterval(async () => {
+        const detections = await faceapi
+          .detectAllFaces(video, new faceapi.TinyFaceDetectorOptions())
+          .withFaceLandmarks(true);
+
+        const resized = faceapi.resizeResults(detections, displaySize);
+        ctx.clearRect(0, 0, overlay.width, overlay.height);
+        faceapi.draw.drawDetections(overlay, resized);
+
+        faceDetected = resized.length > 0;
+
+        if (faceDetected) {
+          const landmarks = resized[0].landmarks;
+          const leftEye = landmarks.getLeftEye();
+          const rightEye = landmarks.getRightEye();
+
+          const leftEAR = eyeAspectRatio(leftEye);
+          const rightEAR = eyeAspectRatio(rightEye);
+
+          const avgEAR = (leftEAR +rightEAR) / 2;
+
+          if (avgEAR < BLINK_THRESHOLD) {
+            const now = Date.now();
+            if (now - blinkStartTime > 1000 && blinkCount < 1) {
+              blinkCount++;
+              blinkStartTime = now;
+              console.log(`Blink detected! Count: ${blinkCount}`);
+            }
+          }
+        } else {
+          
+          if (blinkCount < 1) {
+            blinkCount = 0;
+          }
+        }
+
+        const enableButtons = faceDetected && blinkCount >= 1 && serverNameInput.value.trim().length > 0;
+        captureBtn.disabled = !enableButtons;
+        verifyBtn.disabled = !enableButtons;
+
+        if (!faceDetected) {
+          messageDiv.textContent = "⚠️ No face detected.";
+        } else if (blinkCount < 1) {
+          messageDiv.textContent = "⚠️ Please blink once to proceed.";
+        } else if (serverNameInput.value.trim().length === 0) {
+          messageDiv.textContent = "⚠️ Please enter the Discord server name.";
+        } else {
+          messageDiv.textContent = `✅ Face detected and blinked. Ready to verify for "${serverNameInput.value.trim()}".`;
+        }
+      }, 200);
+    }
+
+    captureBtn.addEventListener("click", () => {
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      capturedDataURL = canvas.toDataURL("image/jpeg");
+      messageDiv.textContent = "✅ Image captured!";
+    });
+
+    verifyBtn.addEventListener("click", async () => {
+      if (!capturedDataURL) {
+        alert("⚠️ Please capture an image first.");
+        return;
+      }
+
+      messageDiv.textContent = "⏳ Uploading...";
+
+      try {
+        const blob = await (await fetch(capturedDataURL)).blob();
+        const formData = new FormData();
+        formData.append("discord_id", discordId);
+        formData.append("server_id", serverId);
+        formData.append("server_name", serverNameInput.value.trim());
+        formData.append("file", blob, "selfie.jpg");
+        formData.append("token", document.getElementById("tokenInput").value);
+
+        const response = await fetch("/verify", {
+          method: "POST",
+          body: formData,
+        });
+
+        const result = await response.json();
+        messageDiv.textContent = result.message;
+        if (result.status === "success") {
+          verifyBtn.textContent = "✅ Verified!";
+          verifyBtn.disabled = true;
+          captureBtn.disabled = true;
+          serverNameInput.disabled = true; 
+        }
+      } catch (error) {
+        messageDiv.textContent = "❌ Error communicating with server.";
+        console.error(error);
+      }
+    });
+
+    window.addEventListener("DOMContentLoaded", async () => {
+      await loadModels();
+      await startWebcam();
+      detectFaceLoop();
+    });
+  </script> 
+</div>
+</body>
+</html>

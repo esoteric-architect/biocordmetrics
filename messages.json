@@ -1,0 +1,45 @@
+{
+  "verification_success_dm": {
+    "title": "Verification Successful ✅",
+    "description": "You have been verified via face recognition and granted access.",
+    "footer": "Welcome aboard!"
+  },
+  "verify_link_dm": {
+    "title": "Welcome to Face Verification 👋",
+    "description": "Click the link below to verify your face and gain access:\n\n[Start Verification]({verify_url})",
+    "footer": "Your data is encrypted and private."
+  },
+  "create_verification": {
+    "title": "Face Verification Required🔒",
+    "description": "To join this server, you must complete a **quick face verification**.\n\nThis ensures the community is safe and alt-free. Your data is private and encrypted.",
+    "footer": "Biometric Secure Verification"
+  },
+  "no_permission": {
+    "title": "You cannot run this command",
+    "description": "You do not have the permissions to run this command",
+    "footer": "Ask for permissions from the server admin"
+  },
+  "test_command_dm": {
+    "title": "Welcome to {server_name}!",
+    "description": "To access the server, please complete face verification.",
+    "field_name": "Verification Link",
+    "field_value": "[Click here to verify]({verify_url})",
+    "footer": "This link expires in 10 minutes."
+  },
+  "error_occurred": "An error occurred ⚠️",
+  "dm_error": "I couldn't send you a DM. Please enable DMs and try again. ❌",
+  "missing_ids_error": "Missing discord_id or server_id",
+  "alts_found_title": "Alts Found",
+  "alts_found_description": "Potential alts found for {member_name} in this server\n{alts}",
+  "alts_found_footer": "",
+  "no_alts_title": "No Alts Found",
+  "no_alts_description": "No potential alts found for {member_name} in this server",
+  "no_alts_footer": "",
+  "verified_title": "Verified",
+  "verified_description": "Member has been face verified in this server",
+  "not_verified_title": "Not Verified",
+  "not_verified_description": "Member has not been face verified in this server",
+  "servers_footer": "Member is verified in {servers_count} servers",
+  "role_removed_success": "Removed role from user",
+  "user_not_verified": "user is not verified and cannot take away role"
+}

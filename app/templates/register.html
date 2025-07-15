@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Face Registration</title>
+  <style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
+  </style>
+  <link rel="stylesheet" href="/static/styles.css">
+  <link rel="stylesheet" href="/static/register.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+</head>
+<body>
+  <div id="consentModal" class="modal">
+    <div class="modal-content">
+      <h2>Face Registration Consent</h2>
+      <p>By continuing, you agree to the use of your camera to register a facial encoding for Discord verification.</p>
+      <p>We do <strong>not</strong> store raw selfies, only a numerical face encoding used for verification. You can request deletion of your data at any time.</p>
+      <button id="agreeBtn">I Agree</button>
+    </div>
+  </div>
+
+  <h1>Face Registration</h1>
+
+  <div id="video-container">
+    <video id="video" width="320" height="240" autoplay muted></video>
+    <canvas id="overlay" width="320" height="240"></canvas>
+  </div>
+
+  <canvas id="canvas" width="320" height="240"></canvas>
+  <input type="hidden" id="discordIdInput" value="{{discord_id}}" />
+  <input type="hidden" id="serverIdInput" value="{{server_id}}" />
+
+  <br />
+  <button id="capture" disabled>Capture</button>
+  <button id="registerBtn" disabled>Register</button>
+
+  <div id="message"></div>
+
+  <script>
+    const discordId = document.getElementById("discordIdInput").value;
+    const serverId = document.getElementById("serverIdInput").value;
+    const video = document.getElementById("video");
+    const overlay = document.getElementById("overlay");
+    const canvas = document.getElementById("canvas");
+    const captureBtn = document.getElementById("capture");
+    const registerBtn = document.getElementById("registerBtn");
+    const messageDiv = document.getElementById("message");
+
+    let faceDetected = false;
+    let capturedDataURL = null;
+
+    async function loadModels() {
+      await faceapi.nets.tinyFaceDetector.loadFromUri("/static/models");
+    }
+
+    async function startWebcam() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        video.srcObject = stream;
+      } catch (err) {
+        alert("Webcam access denied.");
+      }
+    }
+    async function detectFaceLoop() {
+      const ctx = overlay.getContext("2d");
+      const displaySize = { width: video.width, height: video.height };
+      faceapi.matchDimensions(overlay, displaySize);
+
+      setInterval(async () => {
+        const detections = await faceapi.detectAllFaces(
+          video,
+          new faceapi.TinyFaceDetectorOptions()
+        );
+        const resized = faceapi.resizeResults(detections, displaySize);
+        ctx.clearRect(0, 0, overlay.width, overlay.height);
+        faceapi.draw.drawDetections(overlay, resized);
+
+        faceDetected = resized.length > 0;
+        captureBtn.disabled = !faceDetected;
+        registerBtn.disabled = !faceDetected;
+        messageDiv.textContent = faceDetected ? "Face detected." : "No face detected.";
+      }, 200);
+    }
+
+    captureBtn.addEventListener("click", () => {
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      capturedDataURL = canvas.toDataURL("image/jpeg");
+      messageDiv.textContent = "Image captured!";
+    });
+
+    registerBtn.addEventListener("click", async () => {
+      if (!capturedDataURL) {
+        alert("Please capture an image first.");
+        return;
+      }
+
+      messageDiv.textContent = "⏳ Uploading...";
+
+      try {
+        const blob = await (await fetch(capturedDataURL)).blob();
+        const formData = new FormData();
+        formData.append("discord_id", discordId);
+        formData.append("server_id", serverId);
+        formData.append("file", blob, "selfie.jpg");
+
+        const response = await fetch("/register", {
+          method: "POST",
+          body: formData,
+        });
+
+        const result = await response.json();
+        messageDiv.textContent = result.message;
+
+        if (result.status === "success") {
+          registerBtn.textContent = "Registered!";
+          setTimeout(() => location.reload(), 1500);
+        }
+      } catch (error) {
+        messageDiv.textContent = "Error communicating with server.";
+        console.error(error);
+      }
+    });
+
+    document.getElementById("agreeBtn").addEventListener("click", async () => {
+      document.getElementById("consentModal").style.display = "none";
+      await loadModels();
+      await startWebcam();
+      detectFaceLoop();
+    });
+  </script>
+</body>
+</html>
